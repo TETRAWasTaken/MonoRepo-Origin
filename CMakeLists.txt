@@ -7,4 +7,6 @@ add_executable(Cmain main.c
         "Quadratic Eq.c"
         "Prime Coprime.c"
         "Even Odd.c"
-        Fibionacci.c)
+        Fibionacci.c
+        factorial.c
+        CW1.c)
