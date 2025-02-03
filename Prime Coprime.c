@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 
-void main () {
+void Composite() {
     int a, temp=0;
     printf("Enter a number: \n");
     scanf("%d", &a);
@@ -24,3 +24,35 @@ void main () {
         printf("%d is a prime number", a);
     }
 }
+
+void EvOd () {
+    int a;
+    printf("Enter a number: \n");
+    scanf("%d", &a);
+    if (a % 2 == 0) {
+        printf("%d is an even number", a);
+    }
+    else {
+        printf("%d is an odd number", a);
+    }
+}
+
+void main() {
+    int func;
+    printf("Prime Coprime (1) \n"
+        "Even Odd (2)\n");
+    scanf("%d", &func);
+
+    switch (func) {
+        case 1:
+            Composite();
+            break;
+        case 2:
+            EvOd();
+            break;
+        default:
+            printf("Invalid input");
+            break;
+    }
+}
+
