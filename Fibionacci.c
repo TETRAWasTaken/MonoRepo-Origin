@@ -4,12 +4,12 @@
 
 #include <stdio.h>
 
-void fibionacci(int n) {
+void fibonacci(int n) {
     if (n==0) {
         printf("Not Possible dumbass");
     }
     else if (n>1) {
-        int a = 0, b = 1, c;
+        unsigned long long int a = 0, b = 1, c;
         for ( int i = 2; i <= n; i++) {
             c = a + b;
             a = b;
@@ -24,5 +24,5 @@ void main() {
     printf("Enter a number: ");
     scanf("%d", &n);
     printf("%d\n",1);
-    fibionacci(n);
+    fibonacci(n);
 }
