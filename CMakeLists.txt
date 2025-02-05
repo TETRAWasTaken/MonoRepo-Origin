@@ -10,4 +10,5 @@ add_executable(Cmain main.c
         Fibionacci.c
         factorial.c
         CW1.c
-        "Star Pattern.c")
+        "Star Pattern.c"
+        CW2.c)
