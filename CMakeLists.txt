@@ -9,4 +9,5 @@ add_executable(Cmain main.c
         "Even Odd.c"
         Fibionacci.c
         factorial.c
-        CW1.c)
+        CW1.c
+        "Star Pattern.c")
