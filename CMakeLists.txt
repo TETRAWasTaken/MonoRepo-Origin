@@ -11,4 +11,5 @@ add_executable(Cmain main.c
         factorial.c
         CW1.c
         "Star Pattern.c"
-        CW2.c)
+        CW2.c
+        "Matrix .c")
