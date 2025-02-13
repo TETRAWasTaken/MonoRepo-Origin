@@ -109,6 +109,12 @@ build CMakeFiles/Cmain.dir/Matrix_.c.o: C_COMPILER__Cmain_unscanned_Debug /Users
   OBJECT_DIR = CMakeFiles/Cmain.dir
   OBJECT_FILE_DIR = CMakeFiles/Cmain.dir
 
+build CMakeFiles/Cmain.dir/array_test_.c.o: C_COMPILER__Cmain_unscanned_Debug /Users/anshumaansoni/CLionProjects/Cmain/array$ test$ .c || cmake_object_order_depends_target_Cmain
+  DEP_FILE = CMakeFiles/Cmain.dir/array_test_.c.o.d
+  FLAGS = -g -std=gnu11 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.1.sdk -fcolor-diagnostics
+  OBJECT_DIR = CMakeFiles/Cmain.dir
+  OBJECT_FILE_DIR = CMakeFiles/Cmain.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target Cmain
@@ -117,7 +123,7 @@ build CMakeFiles/Cmain.dir/Matrix_.c.o: C_COMPILER__Cmain_unscanned_Debug /Users
 #############################################
 # Link the executable Cmain
 
-build Cmain: C_EXECUTABLE_LINKER__Cmain_Debug CMakeFiles/Cmain.dir/main.c.o CMakeFiles/Cmain.dir/Quadratic_Eq.c.o CMakeFiles/Cmain.dir/Prime_Coprime.c.o CMakeFiles/Cmain.dir/Even_Odd.c.o CMakeFiles/Cmain.dir/Fibionacci.c.o CMakeFiles/Cmain.dir/factorial.c.o CMakeFiles/Cmain.dir/CW1.c.o CMakeFiles/Cmain.dir/Star_Pattern.c.o CMakeFiles/Cmain.dir/CW2.c.o CMakeFiles/Cmain.dir/Matrix_.c.o
+build Cmain: C_EXECUTABLE_LINKER__Cmain_Debug CMakeFiles/Cmain.dir/main.c.o CMakeFiles/Cmain.dir/Quadratic_Eq.c.o CMakeFiles/Cmain.dir/Prime_Coprime.c.o CMakeFiles/Cmain.dir/Even_Odd.c.o CMakeFiles/Cmain.dir/Fibionacci.c.o CMakeFiles/Cmain.dir/factorial.c.o CMakeFiles/Cmain.dir/CW1.c.o CMakeFiles/Cmain.dir/Star_Pattern.c.o CMakeFiles/Cmain.dir/CW2.c.o CMakeFiles/Cmain.dir/Matrix_.c.o CMakeFiles/Cmain.dir/array_test_.c.o
   FLAGS = -g -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.1.sdk
   OBJECT_DIR = CMakeFiles/Cmain.dir
   POST_BUILD = :
