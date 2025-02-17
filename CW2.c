@@ -81,6 +81,15 @@ void Substraction(Matrix2D* mat1, Matrix2D* mat2) {
     matrixrepresentation(&tempmat);
 }
 
+void Multiplication(Matrix2D* mat1, Matrix2D* mat2) {
+    Matrix2D tempmat;
+    tempmat.row1[0] = mat1->row1[0]*mat2->row1[0] + mat1->row1[1]*mat2->row2[0];
+    tempmat.row1[1] = mat1->row1[0]*mat2->row1[1] + mat1->row1[1]*mat2->row2[1];
+    tempmat.row2[0] = mat1->row2[0]*mat2->row1[0] + mat1->row2[1]*mat2->row2[0];
+    tempmat.row2[1] = mat1->row2[0]*mat2->row1[1] + mat1->row2[1]*mat2->row2[1];
+
+    matrixrepresentation(&tempmat);
+}
 
 void function(Matrix2D* mat1, Matrix2D* mat2) {
     int n;
@@ -100,7 +109,7 @@ void function(Matrix2D* mat1, Matrix2D* mat2) {
             continue;
         }
         else if (n==3) {
-            //Multiplycation(mat1, mat2);
+            Multiplication(mat1, mat2);
             continue;
         }
         else {
