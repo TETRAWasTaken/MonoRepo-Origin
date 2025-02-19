@@ -11,6 +11,7 @@ add_executable(Cmain main.c
         factorial.c
         CW1.c
         "Star Pattern.c"
-        CW2.c
+        Matrices.c
         "Matrix .c"
-        "array test .c")
+        "array test .c"
+        stringlooping.c)
