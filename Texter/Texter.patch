@@ -1,0 +1,1957 @@
+Index: pythonProject/arduino.py
+===================================================================
+diff --git a/pythonProject/arduino.py b/pythonProject/arduino.py
+deleted file mode 100644
+--- a/pythonProject/arduino.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,12 +0,0 @@
+-import pyfirmata
+-import time
+-
+-if __name__ == '__main__':
+-    board = pyfirmata.Arduino('COM8')
+-    print("Communication Successfully started")
+-
+-    while True:
+-        board.digital[13].write(1)
+-        time.sleep(1)
+-        board.digital[13].write(0)
+-        time.sleep(1)
+Index: pythonProject/backend base.py
+===================================================================
+diff --git a/pythonProject/backend base.py b/pythonProject/backend base.py
+deleted file mode 100644
+--- a/pythonProject/backend base.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,202 +0,0 @@
+-import os
+-import socket
+-import threading
+-import time
+-import re
+-
+-credentials = {'anshumaan#':'anshumaan'}
+-
+-hostname = socket.gethostname()
+-addresses = socket.getaddrinfo(hostname, None, socket.AF_INET6)
+-ipv6_address = addresses[1][4][0]
+-ports = [12346,12347]
+-
+-class Server(socket.socket):
+-
+-    def __init__(self, host=ipv6_address, port1=12347, port2=12346):
+-        super().__init__(socket.AF_INET6, socket.SOCK_STREAM)
+-        self.host = host
+-        self.port1 = port1
+-        self.port2 = port2
+-
+-    def start(self):
+-        print('DNS redirector Activated')
+-        print('Servers started on ports:', self.port1, 'and', self.port2)
+-        DNSserver = threading.Thread(target=self.DNS)
+-        server1_thread = threading.Thread(target=self.server1)
+-        server2_thread = threading.Thread(target=self.server2)
+-
+-        DNSserver.start()
+-        server1_thread.start()
+-        server2_thread.start()
+-
+-    def server1(self):
+-        self.server1_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-        self.server1_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+-        self.server1_socket.bind((self.host, self.port1, 0, 0))
+-        self.server1_socket.listen(5)
+-
+-        print(f"Server 1 listening on port: {self.port1}")
+-
+-        while True:
+-            self.client1_socket, addr = self.server1_socket.accept()
+-            print(f"Connection from {addr} has been established.")
+-            t1 = threading.Thread(target=self.processing1)
+-            t1.start()
+-
+-    def server2(self):
+-        self.server2_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-        self.server2_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+-        self.server2_socket.bind((self.host, self.port2, 0, 0))
+-        self.server2_socket.listen(5)
+-
+-        print(f"Server 2 listening on port: {self.port2}")
+-
+-        while True:
+-            self.client2_socket, addr = self.server2_socket.accept()
+-            print(f"Connection from {addr} has been established.")
+-            t4 = threading.Thread(target=self.processing2)
+-            t4.start()
+-
+-    def processing1(self):
+-        t3 = threading.Thread(target=self.prompt1)
+-        t6 = threading.Thread(target=self.cache1promt)
+-        t3.start()
+-        t6.start()
+-        t3.join()
+-        t6.join()
+-    def processing2(self):
+-        t5 = threading.Thread(target=self.prompt2)
+-        t7 = threading.Thread(target=self.cache2promt)
+-        t5.start()
+-        t7.start()
+-        t5.join()
+-        t7.join()
+-    def prompt1(self):
+-        n = 1
+-        self.cache1={}
+-        self.cache1sent={}
+-        while True:
+-            try:
+-                received_data = self.client1_socket.recv(2048).decode()
+-                if not received_data:
+-                    break
+-                print(f'Received client1: {received_data}')
+-                try:
+-                    self.client2_socket.send(received_data.encode())
+-                    self.cache1sent[(time.time())]=received_data
+-                except (AttributeError):
+-                    print("Second Client Hasn't Established the Connection With the Server Yet")
+-                    self.cache1[(time.time())]=received_data
+-                    continue
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client1.")
+-                break
+-
+-    def prompt2(self):
+-        self.cache2={}
+-        self.cache2sent={}
+-        while True:
+-            try:
+-                received_data = self.client2_socket.recv(2048).decode()
+-                if not received_data:
+-                    break
+-                print(f'Received client2: {received_data}')
+-                try:
+-                    self.client1_socket.send(received_data.encode())
+-                    self.cache2sent[(time.time())]=received_data
+-                except (AttributeError):
+-                    print("Second Client Hasn't Established the Connection With the Server Yet")
+-                    self.cache2[(time.time())]=received_data
+-                    continue
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client2.")
+-                break
+-
+-    def cache1promt(self):
+-        while True:
+-            try:
+-                for i in self.cache1.keys():
+-                    time.sleep(0.2)
+-                    if i in self.cache1sent.keys():
+-                        continue
+-                    else:
+-                        try:
+-                            self.client2_socket.send(self.cache1[i].encode())
+-                            self.cache1sent[i]=self.cache1[i]
+-                        except (AttributeError):
+-                            continue
+-            except (ConnectionError, ConnectionAbortedError, RuntimeError):
+-                continue
+-
+-    def cache2promt(self):
+-        while True:
+-            try:
+-                for i in self.cache2.keys():
+-                    time.sleep(0.2)
+-                    if i in self.cache2sent.keys():
+-                        continue
+-                    else:
+-                        try:
+-                            self.client1_socket.send(self.cache2[i].encode())
+-                            self.cache2sent[i]=self.cache2[i]
+-                        except (AttributeError):
+-                            continue
+-            except (ConnectionError, ConnectionAbortedError, RuntimeError):
+-                continue
+-
+-    def DNS(self):
+-        self.DNS_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-        self.DNS_socket.bind((self.host,12345, 0, 0))
+-        self.DNS_socket.listen(5)
+-        print("DNS activated")
+-        n=0
+-        while True:
+-            self.DNSclient_scoket, addr = self.DNS_socket.accept()
+-            print(f"Connection from {addr} has been requested, waiting for login or Registration")
+-            logorreg = self.DNSclient_scoket.recv(2048).decode()
+-
+-            if(logorreg=='login'):
+-                print(f"Login requested by {addr}")
+-                cred = self.DNSclient_scoket.recv(2048).decode()
+-                user = re.search("(^.*?#)", cred)
+-                passw = re.search("[^#]*$", cred)
+-                try:
+-                    if (credentials[user.group(0)] == passw.group(0)):
+-                        yes = '1'
+-                        self.DNSclient_scoket.sendall(yes.encode())
+-                        req = self.DNSclient_scoket.recv(2048).decode()
+-                        if req:
+-                            if (req == 'sendport'):
+-                                self.DNSclient_scoket.send(str(ports[n]).encode())
+-                                n = n + 1
+-                            else:
+-                                continue
+-                        else:
+-                            continue
+-                    elif (credentials[user.group(0)] != passw.group(0)):
+-                        print(f"Crendentials Not Match failure for client {addr}")
+-                        self.DNSclient_scoket.send(("Credfail").encode())
+-                except (KeyError):
+-                    print("Account Not found")
+-                    self.DNSclient_scoket.send(("NAF").encode())
+-
+-            elif(logorreg=='reg'):
+-                print(f"Registration Requested by {addr}")
+-                cred = self.DNSclient_scoket.recv(2048).decode()
+-                user = re.search("(^.*?#)", cred)
+-                passw = re.search("[^#]*$", cred)
+-                if user.group(0) in credentials.keys():
+-                    print("Registration Failed, Username Exist Already")
+-                    self.DNSclient_scoket.send(('AAE').encode())
+-                else:
+-                    print(f"Registration succeful for {addr}")
+-                    credentials[user.group(0)]=passw.group(0)
+-                    print(credentials)
+-                    self.DNSclient_scoket.send(('success').encode())
+-
+-
+-
+-if __name__ == '__main__':
+-    server = Server()
+-    server.start()
+Index: pythonProject/central base.py
+===================================================================
+diff --git a/pythonProject/central base.py b/pythonProject/central base.py
+deleted file mode 100644
+--- a/pythonProject/central base.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,266 +0,0 @@
+-import os
+-import socket
+-import threading
+-import time
+-import re
+-import datetime
+-import ast
+-import json
+-
+-current_time = datetime.datetime.now()
+-
+-credentials = {'anshumaan#':'anshumaan','wani#':'wani'}
+-
+-hostname = socket.gethostname()
+-addresses = socket.getaddrinfo(hostname, None, socket.AF_INET6)
+-ipv6_address = addresses[0][4][0]
+-print(ipv6_address)
+-ports = [12346,12347]
+-
+-class Server(socket.socket):
+-    def __init__(self, host=ipv6_address, port1=12347, port2=12346):
+-        super().__init__(socket.AF_INET6, socket.SOCK_STREAM)
+-        self.host = host
+-        self.port1 = port1
+-        self.port2 = port2
+-
+-    def start(self):
+-        print('DNS redirector Activated')
+-        print('Servers started on ports:', self.port1, 'and', self.port2)
+-        DNSserver = threading.Thread(target=self.DNS)
+-        server1_thread = threading.Thread(target=self.server1)
+-        server2_thread = threading.Thread(target=self.server2)
+-
+-        DNSserver.start()
+-        server1_thread.start()
+-        server2_thread.start()
+-
+-    def server1(self):
+-        self.server1names = []
+-        self.server1_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-        self.server1_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+-        self.server1_socket.bind((self.host, self.port1, 0, 0))
+-        self.server1_socket.listen(5)
+-
+-        print(f"Server listening on port: {self.port1}")
+-
+-        while True:
+-            self.client1_socket, addr = self.server1_socket.accept()
+-            print(f"Connection from {addr} has been established.")
+-            user2 = self.client1_socket.recv(2048).decode()̊
+-            user1 = self.client1_socket.recv(2048).decode()
+-            self.server1names.append(user1)
+-            self.server1names.append(user2)
+-            t1 = threading.Thread(target=self.processing1)
+-            t1.start()
+-
+-    def server2(self):
+-        self.server2names = []
+-        self.server2_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-        self.server2_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+-        self.server2_socket.bind((self.host, self.port2, 0, 0))
+-        self.server2_socket.listen(5)
+-
+-        print(f"Server 2 listening on port: {self.port2}")
+-
+-        while True:
+-            self.client2_socket, addr = self.server2_socket.accept()
+-            print(f"Connection from {addr} has been established.")
+-            user2 = self.client2_socket.recv(2048).decode()
+-            user1 = self.client2_socket.recv(2048).decode()
+-            self.server2names.append(user1)
+-            self.server2names.append(user2)
+-            t4 = threading.Thread(target=self.processing2)
+-            t4.start()
+-
+-    def processing1(self):
+-        user = self.server1names[0]
+-        user2 = self.server1names[1]
+-        t3 = threading.Thread(target=self.prompt1)
+-        t6 = threading.Thread(target=self.tcache1promt, args=(user,user2))
+-        t3.start()
+-        t6.start()
+-        t3.join()
+-        t6.join()
+-
+-    def processing2(self):
+-        user = self.server2names[0]
+-        user2 = self.server2names[1]
+-        t5 = threading.Thread(target=self.prompt2)
+-        t7 = threading.Thread(target=self.tcache2promt, args=(user,user2))
+-        t5.start()
+-        t7.start()
+-        t5.join()
+-        t7.join()
+-
+-    def prompt1(self):
+-        user = self.server1names[0]
+-        user2 = self.server1names[1]
+-        while True:
+-            try:
+-                received_data = self.client1_socket.recv(2048).decode()
+-                if not received_data:
+-                    break
+-                print(f'Received client1: {received_data}')
+-                try:
+-                    self.client2_socket.send(received_data.encode())
+-                    tcache[user2][current_time] = [received_data, 1, user]
+-                except (AttributeError):
+-                    print("Second Client Hasn't Established the Connection With the Server Yet")
+-                    tcache[user2][current_time] = [received_data, 0, user]
+-                    continue
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client1.")
+-                break
+-
+-    def prompt2(self):
+-        user = self.server2names[0]
+-        user2 = self.server2names[1]
+-        while True:
+-            try:
+-                received_data = self.client2_socket.recv(2048).decode()
+-                if not received_data:
+-                    break
+-                print(f'Received client2: {received_data}')
+-                try:
+-                    self.client1_socket.send(received_data.encode())
+-                    tcache[user2][current_time] = [received_data, 1, user]
+-                except (AttributeError):
+-                    print("Second Client Hasn't Established the Connection With the Server Yet")
+-                    tcache[user2][current_time] = [received_data, 0, user]
+-                    continue
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client2.")
+-                break
+-
+-    def tcache1promt(self,user,user2):
+-        while True:
+-            try:
+-                for i in tcache[user].keys():
+-                    if tcache[user][i][2]==user2:
+-                        if tcache[user][i][1] == 0:
+-                            time.sleep(0.1)
+-                            try:
+-                                self.client2_socket.send(tcache[user][i][0].encode())
+-                            except (AttributeError):
+-                                continue
+-                            tcache[user][i][1] = 1
+-                        else:
+-                            continue
+-                    else:
+-                        continue
+-            except (ConnectionRefusedError, ConnectionError, RuntimeError):
+-                continue
+-
+-    def tcache2promt(self,user,user2):
+-        while True:
+-            try:
+-                for i in tcache[user].keys():
+-                    if tcache[user][i][2]==user2:
+-                        if tcache[user][i][1] == 0:
+-                            time.sleep(0.1)
+-                            try:
+-                                self.client2_socket.send(tcache[user][i][0].encode())
+-                            except (AttributeError):
+-                                continue
+-                            tcache[user][i][1] = 1
+-                        else:
+-                            continue
+-                    else:
+-                        continue
+-            except (ConnectionRefusedError, ConnectionError, RuntimeError):
+-                continue
+-
+-    def cache1promt(self):
+-        while True:
+-            try:
+-                for i in self.cache1.keys():
+-                    time.sleep(0.2)
+-                    if i in self.cache1sent.keys():
+-                        continue
+-                    else:
+-                        try:
+-                            self.client2_socket.send(self.cache1[i].encode())
+-                            self.cache1sent[i]=self.cache1[i]
+-                        except (AttributeError):
+-                            continue
+-            except (ConnectionError, ConnectionAbortedError, RuntimeError):
+-                continue
+-
+-    def cache2promt(self):
+-        while True:
+-            try:
+-                for i in self.cache2.keys():
+-                    time.sleep(0.2)
+-                    if i in self.cache2sent.keys():
+-                        continue
+-                    else:
+-                        try:
+-                            self.client1_socket.send(self.cache2[i].encode())
+-                            self.cache2sent[i]=self.cache2[i]
+-                        except (AttributeError):
+-                            continue
+-            except (ConnectionError, ConnectionAbortedError, RuntimeError):
+-                continue
+-
+-    def DNS(self):
+-        self.users=[]
+-        self.DNS_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-        self.DNS_socket.bind((self.host,12345, 0, 0))
+-        self.DNS_socket.listen(5)
+-        print("DNS activated")
+-        n=0
+-        while True:
+-            self.DNSclient_scoket, addr = self.DNS_socket.accept()
+-            print(f"Connection from {addr} has been requested, waiting for login or Registration")
+-            logorreg = self.DNSclient_scoket.recv(2048).decode()
+-
+-            if(logorreg=='login'):
+-                print(f"Login requested by {addr}")
+-                cred = self.DNSclient_scoket.recv(2048).decode()
+-                user = re.search("(^.*?#)", cred)
+-                passw = re.search("[^#]*$", cred)
+-                try:
+-                    if (credentials[user.group(0)] == passw.group(0)):
+-                        yes = '1'
+-                        self.DNSclient_scoket.sendall(yes.encode())
+-                        req = self.DNSclient_scoket.recv(2048).decode()
+-                        if req:
+-                            if (req == 'sendport'):
+-                                self.DNSclient_scoket.send(str(ports[n]).encode())
+-                                n = n + 1
+-                                self.users.append(user.group(0))
+-                            else:
+-                                continue
+-                        else:
+-                            continue
+-                    elif (credentials[user.group(0)] != passw.group(0)):
+-                        print(f"Crendentials Not Match failure for client {addr}")
+-                        self.DNSclient_scoket.send(("Credfail").encode())
+-                except (KeyError):
+-                    print("Account Not found")
+-                    self.DNSclient_scoket.send(("NAF").encode())
+-
+-            elif(logorreg=='reg'):
+-                print(f"Registration Requested by {addr}")
+-                cred = self.DNSclient_scoket.recv(2048).decode()
+-                user = re.search("(^.*?#)", cred)
+-                passw = re.search("[^#]*$", cred)
+-                if user.group(0) in credentials.keys():
+-                    print("Registration Failed, Username Exist Already")
+-                    self.DNSclient_scoket.send(('AAE').encode())
+-                else:
+-                    print(f"Registration succeful for {addr}")
+-                    credentials[user.group(0)]=passw.group(0)
+-                    print(credentials)
+-                    self.DNSclient_scoket.send(('success').encode())
+-
+-
+-if __name__ == '__main__':
+-    with open('/Users/anshumaansoni/PycharmProjects/pythonProject/text cache txt', 'r') as file:
+-        text = file.read()
+-        tcache = ast.literal_eval(text)
+-    server = Server()
+-    server.start()
+-    with open('/Users/anshumaansoni/PycharmProjects/pythonProject/text cache txt', 'w') as file:
+-        file.write(json.dumps(tcache))
+\ No newline at end of file
+Index: pythonProject/client base.py
+===================================================================
+diff --git a/pythonProject/client base.py b/pythonProject/client base.py
+deleted file mode 100644
+--- a/pythonProject/client base.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,41 +0,0 @@
+-import socket
+-import time
+-import threading
+-def send(client_socket):
+-    while True:
+-        sen=input('')
+-        try:
+-            client_socket.sendall(sen.encode())
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by client.")
+-            break
+-def prompt(client_socket):
+-    while True:
+-        try:
+-            received_data = client_socket.recv(2048).decode()
+-            if not received_data:
+-                break
+-            print(f'Received String: {received_data}')
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by client.")
+-            break
+-
+-def processing(client_socket):
+-    t3 = threading.Thread(target=prompt, args=(client_socket,))
+-    t2 = threading.Thread(target=send, args=(client_socket,))
+-
+-    t3.start()
+-    t2.start()
+-
+-    t3.join()
+-    t2.join()
+-
+-def client():
+-    client_socket = socket.socket()
+-    client_socket.connect(('192.168.1.8', 12346))
+-
+-    t1 = threading.Thread(target=processing, args=(client_socket,))
+-    t1.start()
+-
+-if __name__ == "__main__":
+-    client()
+\ No newline at end of file
+Index: pythonProject/IPV6 trials.py
+===================================================================
+diff --git a/pythonProject/IPV6 trials.py b/pythonProject/IPV6 trials.py
+deleted file mode 100644
+--- a/pythonProject/IPV6 trials.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,13 +0,0 @@
+-import socket
+-
+-host = "2409:40c4:e5:15ac:8000::"
+-port = 12345
+-
+-clientsocket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-clientsocket.connect((host,port,0,0))
+-
+-while True:
+-    a = clientsocket.recv(2048).decode()
+-    print(a)
+-    b = input()
+-    clientsocket.sendall((b.encode()))
+\ No newline at end of file
+Index: pythonProject/IPV6 trials 2.py
+===================================================================
+diff --git a/pythonProject/IPV6 trials 2.py b/pythonProject/IPV6 trials 2.py
+deleted file mode 100644
+--- a/pythonProject/IPV6 trials 2.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,15 +0,0 @@
+-import socket
+-
+-Host = "2401:4900:8823:397d:31a8:5922:99ac:5deb"
+-port =12345
+-
+-serversocket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-serversocket.bind((Host,port,0,0))
+-serversocket.listen(5)
+-while True:
+-   client1_socket, addr = serversocket.accept()
+-   print(f"Connection from {addr} has been established.")
+-   a = input()
+-   client1_socket.sendall((a.encode()))
+-   b = client1_socket.recv(2048).decode()
+-   print(b)
+Index: pythonProject/noguitexter.py
+===================================================================
+diff --git a/pythonProject/noguitexter.py b/pythonProject/noguitexter.py
+deleted file mode 100644
+--- a/pythonProject/noguitexter.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,57 +0,0 @@
+-import threading
+-import socket
+-
+-print("Enter the Server Ip : ")
+-IP = input('')
+-print("Enter the port no. : ")
+-port = int(input(''))
+-
+-def send(client_socket):
+-    while True:
+-        try:
+-            message = input("You: ")
+-            if message:
+-                client_socket.sendall(message.encode())
+-            else:
+-                break
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by client.")
+-            break
+-
+-def receive(client_socket):
+-    while True:
+-        try:
+-            received_data = client_socket.recv(2048).decode()
+-            if not received_data:
+-                continue
+-            else:
+-                print(f'Server: {received_data}')
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by client.")
+-            break
+-
+-def client():
+-    try:
+-        client_socket = socket.socket()
+-        client_socket.connect((IP, port))
+-        print("Connected!")
+-
+-        receive_thread = threading.Thread(target=receive, args=(client_socket,))
+-        send_thread = threading.Thread(target=send, args=(client_socket,))
+-
+-        receive_thread.start()
+-        send_thread.start()
+-
+-        receive_thread.join()
+-        send_thread.join()
+-
+-    except ConnectionRefusedError:
+-        print("Target Refused to Connect")
+-
+-    except (ConnectionError, ConnectionAbortedError):
+-        print("Connection closed by client.")
+-
+-if __name__ == "__main__":
+-    client()
+Index: pythonProject/proxy 2.py
+===================================================================
+diff --git a/pythonProject/proxy 2.py b/pythonProject/proxy 2.py
+deleted file mode 100644
+--- a/pythonProject/proxy 2.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,5 +0,0 @@
+-import socket
+-hostname = socket.gethostname()
+-addresses = socket.getaddrinfo(hostname, None, socket.AF_INET6)
+-ipv6_address = addresses[1][4][0]
+-
+Index: pythonProject/proxyreq.py
+===================================================================
+diff --git a/pythonProject/proxyreq.py b/pythonProject/proxyreq.py
+deleted file mode 100644
+--- a/pythonProject/proxyreq.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,25 +0,0 @@
+-# import packages.
+-import requests
+-from bs4 import BeautifulSoup
+-
+-# Define proxies to use.
+-proxies = {
+-    'http': 'http://127.0.0.1:8899',
+-    'https': 'http://127.0.0.1:8899',
+-}
+-
+-# Define a link to the web page.
+-url = "https://brightdata.com/"
+-
+-# Send a GET request to the website.
+-response = requests.get(url, proxies=proxies)
+-
+-# Use BeautifulSoup to parse the HTML content of the website.
+-soup = BeautifulSoup(response.content, "html.parser")
+-
+-# Find all the links on the website.
+-links = soup.find_all("a")
+-
+-# Print all the links.
+-for link in links:
+-    print(link.get("href"))
+\ No newline at end of file
+Index: pythonProject/server backend.py
+===================================================================
+diff --git a/pythonProject/server backend.py b/pythonProject/server backend.py
+deleted file mode 100644
+--- a/pythonProject/server backend.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,72 +0,0 @@
+-import cv2
+-import socket
+-import threading
+-import os
+-
+-
+-def send_video_list(client_socket):
+-    video_files = os.listdir(r'C:\Users\anshu\Pictures\video')
+-    video_list = "\n".join([f"{i + 1}: {video}" for i, video in enumerate(video_files)])
+-    client_socket.sendall(video_list.encode())
+-
+-
+-def handle_client(client_socket, addr):
+-    send_video_list(client_socket)
+-
+-    selected_video_index = int(client_socket.recv(1024).decode())
+-    video_files = os.listdir(r"C:\Users\anshu\Pictures\video")
+-
+-    if selected_video_index < 1 or selected_video_index > len(video_files):
+-        print(f"Invalid video selection from {addr}.")
+-        client_socket.sendall(b"ERROR: Invalid selection")
+-        return
+-
+-    selected_video = video_files[selected_video_index - 1]
+-    video_path = os.path.join("video_repository", selected_video)
+-
+-    cap = cv2.VideoCapture(video_path)
+-
+-    while cap.isOpened():
+-        ret, frame = cap.read()
+-        if not ret:
+-            break
+-
+-        _, img_encoded = cv2.imencode('.jpg', frame)
+-        img_bytes = img_encoded.tobytes()
+-
+-        client_socket.sendall(len(img_bytes).to_bytes(2048, byteorder='big'))
+-        client_socket.sendall(img_bytes)
+-
+-    cap.release()
+-
+-    print(f"Video '{selected_video}' has been streamed to {addr}")
+-    client_socket.sendall(b"END_STREAM")
+-
+-    client_socket.close()
+-
+-
+-def sendtxt(client_socket):
+-    print("Enter the Send String")
+-    txt = input()
+-    client_socket.send(txt.encode())
+-    client_socket.close()
+-
+-
+-def serve():
+-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+-    server_socket.bind(('192.168.1.10', 12345))
+-    server_socket.listen(5)
+-
+-    print("listening")
+-
+-    while True:
+-        client_socket, addr = server_socket.accept()
+-        print(f"Connection from {addr} has been established.")
+-        client_handler = threading.Thread(target=sendtxt, args=(client_socket))
+-        client_handler.start()
+-
+-    server_socket.close()
+-
+-
+-if __name__ == "__main__":
+-    serve()
+Index: pythonProject/server client.py
+===================================================================
+diff --git a/pythonProject/server client.py b/pythonProject/server client.py
+deleted file mode 100644
+--- a/pythonProject/server client.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,49 +0,0 @@
+-import cv2
+-import socket
+-import numpy as np
+-
+-
+-def receive_stream(client_socket):
+-    print("Available videos:")
+-    video_list = client_socket.recv(1024).decode()
+-    print(video_list)
+-
+-    selected_video_index = input("Enter the number of the video you want to stream: ")
+-    client_socket.sendall(selected_video_index.encode())
+-
+-    print("Streaming video...")
+-
+-    while True:
+-        try:
+-            frame_size = int.from_bytes(client_socket.recv(2048), byteorder='big')
+-            if frame_size == 0:
+-                print("End of video stream.")
+-                break
+-
+-            img_bytes = b''
+-            while len(img_bytes) < frame_size:
+-                packet = client_socket.recv(frame_size - len(img_bytes))
+-                if not packet:
+-                    break
+-                img_bytes += packet
+-
+-            nparr = np.frombuffer(img_bytes, np.uint8)
+-            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+-
+-            cv2.imshow('Client Video Stream', frame)
+-            if cv2.waitKey(1) & 0xFF == ord('q'):
+-                break
+-
+-        except ConnectionAbortedError:
+-            print("Connection closed by server")
+-            break
+-
+-    cv2.destroyAllWindows()
+-    client_socket.close()
+-
+-
+-if __name__ == "__main__":
+-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+-    client_socket.connect(('192.168.1.10', 12345))
+-
+-    receive_stream(client_socket)
+\ No newline at end of file
+Index: pythonProject/ssh client.py
+===================================================================
+diff --git a/pythonProject/ssh client.py b/pythonProject/ssh client.py
+deleted file mode 100644
+--- a/pythonProject/ssh client.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,49 +0,0 @@
+-import paramiko
+-import subprocess
+-import sys
+-#script args
+-server_address = sys.argv[1]
+-server_port = int(sys.argv[2])
+-username = sys.argv[3]
+-password = sys.argv[4]
+-#connect to the remote ssh server and recieve commands to be #executed and send back output
+-def ssh_command(server_address, server_port, username, password):
+-    #instantiate the ssh client
+-    client = paramiko.SSHClient()
+-#optional is using keys instead of password auth
+-    #client.load_host_key('/path/to/file')
+-#auto add key
+-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+-#connect to ssh server
+-    client.connect(
+-        server_address,
+-        port=server_port,
+-        username=username,
+-        password=password
+-    )
+-#get ssh session
+-    client_session = client.get_transport().open_session()
+-    if client_session.active and not client_session.closed:
+-        #wait for command, execute and send result ouput
+-        while True:
+-            #use subprocess run with timeout of 30 seconds
+-            try:
+-                command = client_session.recv(1024).decode('utf-8')
+-                command_output = subprocess.run(
+-                    command, stdout=subprocess.PIPE,
+-                    stderr=subprocess.PIPE,
+-                    shell=True,
+-                    timeout=30
+-                )
+-                #send back the resulting output
+-                if len(command_output.stderr.decode('utf-8')):
+-                    client_session.send(command_output.stderr.decode('utf-8'))
+-                elif len(command_output.stdout.decode('utf-8')):
+-                    client_session.send(command_output.stdout.decode('utf-8'))
+-                else:
+-                    client_session.send('null')
+-            except subprocess.CalledProcessError as err:
+-                client_session.send(str(err))
+-    client_session.close()
+-    return
+-ssh_command(server_address, server_port, username, password)
+\ No newline at end of file
+Index: pythonProject/ssh server.py
+===================================================================
+diff --git a/pythonProject/ssh server.py b/pythonProject/ssh server.py
+deleted file mode 100644
+--- a/pythonProject/ssh server.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,84 +0,0 @@
+-import socket
+-import paramiko
+-import threading
+-import sys
+-
+-from paramiko.ssh_exception import SSHException
+-
+-#script args
+-server_address = sys.argv[1]
+-server_port = int(sys.argv[2])
+-server_username = sys.argv[3]
+-server_password = sys.argv[4]
+-server_host_key = paramiko.RSAKey(filename="ch2_ssh_server.key")
+-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+-server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+-#ssh server parameters defined in the class
+-class Server(paramiko.ServerInterface):
+-    def __init__(self):
+-        self.event = threading.Event()
+-    def check_auth_password(self, username, password):
+-        if username == server_username and password == server_password:
+-            return paramiko.AUTH_SUCCESSFUL
+-        return paramiko.AUTH_FAILED
+-    def check_channel_request(self, kind, chanid):
+-        if kind == "session":
+-            return paramiko.OPEN_SUCCEEDED
+-        return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+-#ssh client handler
+-def client_handler(client_socket):
+-    try:
+-        #bind client socket to ssh server session and add rsa key
+-        ssh_session = paramiko.Transport(client_socket)
+-        ssh_session.add_server_key(server_host_key)
+-        server = Server()
+-#start the ssh server and negotiate ssh params
+-        try:
+-            ssh_session.start_server(server=server)
+-        except SSHException as err:
+-            print("[!] SSH Parameters Negotiation Failed")
+-            print("[*] SSH Parameters Negotiation Succeeded")
+-#authenticate the client
+-        print("[*] Authenticating")
+-        ssh_channel = ssh_session.accept(20)
+-        if ssh_channel == None or not ssh_channel.active:
+-            print("[*] SSH Client Authentication Failure")
+-            ssh_session.close()
+-        else:
+-            print("[*] SSH Client Authenticated")
+-#ssh channel is established. We can start the shell
+-            #and send commands from input
+-            while not ssh_channel.closed:
+-                try:
+-                    command = input("<Shell:#> ").rstrip()
+-                    if len(command):
+-                        if command != "exit":
+-                            ssh_channel.send(command)
+-                            print(ssh_channel.recv(1024).decode('utf-8') + '\n')
+-                        else:
+-                            print("[*] Exiting")
+-                            ssh_session.close()
+-
+-    except Exception as err:
+-        print("[*] Caught Exception: ", str(err))
+-        print("[*] Exiting Script")
+-        try:
+-            ssh_session.close()
+-        except:
+-            print("[!] Error closing SSH session")
+-            print("[*] SSH session closed")
+-            sys.exit(1)
+-#ssh server bind and listen
+-try:
+-    server_socket.bind((server_address, server_port))
+-except:
+-    print(f"[!] Bind Error for SSH Server using {server_address}:{server_socket.getsockname()[1]}")
+-    sys.exit(1)
+-print(f"[*] Bind Success for SSH Server using {server_address}:{server_socket.getsockname()[1]}")
+-server_socket.listen(100)
+-print("[*] Listening")
+-#Keep ssh server active and accept incoming tcp connections
+-while True:
+-    client_socket, addr = server_socket.accept()
+-    print(f"[*] Incoming TCP Connection from {addr[0]}:{addr[1]}")
+-    client_handler(client_socket)
+\ No newline at end of file
+Index: pythonProject/Tecting GUI for mac.py
+===================================================================
+diff --git a/pythonProject/Tecting GUI for mac.py b/pythonProject/Tecting GUI for mac.py
+deleted file mode 100644
+--- a/pythonProject/Tecting GUI for mac.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,167 +0,0 @@
+-import wx
+-import threading
+-import socket
+-
+-print("Enter the Server Ip : ")
+-IP = input('')
+-print("Enter the port no. : ")
+-port = int(input(''))
+-
+-def enct(string):
+-    key = {'a': '@', 'b': '^', 'c': '&', 'd': '*', 'e': '/', 'f': '.', 'g': '{', 'h': '}', 'i': '+', 'j': '=', 'k': '#', 'l': '!', 'm': '<', 'n': '_', 'o': '|', 'p': '~', 'q': '$', 'r': '%', 's': '`', 't': '(', 'u': ')', 'v': '-', 'w': '2', 'x': '3', 'y': '6', 'z': '8', ' ': '0'}
+-    li = []
+-    for i in string:
+-      b = key[i]
+-      li.append(b)
+-    string = "".join(li)
+-    return string
+-
+-def dect(string):
+-    key = {'@': 'a', '^': 'b', '&': 'c', '*': 'd', '/': 'e', '.': 'f', '{': 'g', '}': 'h', '+': 'i', '=': 'j', '#': 'k', '!': 'l', '<': 'm', '_': 'n', '|': 'o', '~': 'p', '$': 'q', '%': 'r', '`': 's', '(': 't', ')': 'u', '-': 'v', '2': 'w', '3': 'x', '6': 'y', '8': 'z', '0': ' '}
+-    li = []
+-    for i in string:
+-      b = key[i]
+-      li.append(b)
+-    string = "".join(li)
+-    return string
+-class TextMessagingGUI(wx.Frame):
+-
+-    def __init__(self, parent=None):
+-        super().__init__(parent, title="Text Messaging Client")
+-
+-        central_panel = wx.Panel(self)
+-        sizer = wx.BoxSizer(wx.VERTICAL)
+-        central_panel.SetSizer(sizer)
+-
+-        self.chat_history = wx.TextCtrl(central_panel, style=wx.TE_MULTILINE | wx.TE_READONLY)
+-        sizer.Add(self.chat_history, 1, wx.EXPAND | wx.ALL, 5)
+-
+-        self.message_entry = wx.TextCtrl(central_panel)
+-        self.send_button = wx.Button(central_panel, label="Send")
+-        self.send_button.Bind(wx.EVT_BUTTON, self.send)
+-
+-        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+-        hsizer.Add(self.message_entry, 1, wx.EXPAND, 5)
+-        hsizer.Add(self.send_button, 0, wx.HORIZONTAL, 5)
+-        sizer.Add(hsizer, 0, wx.EXPAND | wx.ALL, 5)
+-
+-        self.status_bar = wx.StaticText(central_panel, label="Disconnected")
+-        sizer.Add(self.status_bar, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
+-        self.Show(True)
+-
+-    def userdata(self):
+-        try:
+-            self.clientDNS_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-            self.clientDNS_socket.connect((IP, port, 0, 0))
+-
+-        except ConnectionRefusedError:
+-            print("Tagret Refused to Connect")
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by Server.")
+-
+-        print("Login or Register as New user  (1/2)")
+-        stat = int(input())
+-        if (stat == 1):
+-            self.clientDNS_socket.send(('login').encode())
+-            print("Enter your Username")
+-            username = input().rstrip()
+-            print("Enter your Password")
+-            passw = input().rstrip()
+-            req = username + '#' + passw
+-            self.clientDNS_socket.sendall(req.encode())
+-            reqr = self.clientDNS_socket.recv(2048).decode()
+-            if reqr:
+-                if (reqr == '1'):
+-                    reqr1 = 'sendport'
+-                    self.clientDNS_socket.send(reqr1.encode())
+-                    portno = self.clientDNS_socket.recv(2048).decode()
+-                    print('1')
+-                    self.port = int(portno)
+-                    self.client(username)
+-                elif (reqr == 'Credfail'):
+-                    print("Username, Password dont match ( Credfail Error) ")
+-                else:
+-                    print("No Account Found !!")
+-            else:
+-                print("Server did not respond")
+-
+-        else:
+-            self.clientDNS_socket.send(('reg').encode())
+-            print("Set an Username")
+-            username = input().rstrip()
+-            print("Set the password")
+-            passw = input().rstrip()
+-            req = username+'#'+passw
+-            self.clientDNS_socket.send(req.encode())
+-            reqr = self.clientDNS_socket.recv(2048).decode()
+-            if(reqr=='AAE'):
+-                print("Username exists already. try logging in or select a different Username")
+-
+-            elif(reqr=='success'):
+-                print("New Account succesfully registered, Please Login Now")
+-
+-            else:
+-                print("Error Occured")
+-
+-    def send(self, event):
+-        while True:
+-            try:
+-                if self.message_entry.GetValue():
+-                    txt = self.message_entry.GetValue()
+-                    txt = enct(txt)
+-                    self.client_socket.sendall((txt).encode())
+-                    self.chat_history.AppendText(f"\nMe: {self.message_entry.GetValue()}")
+-                    self.message_entry.Clear()
+-                else:
+-                    break
+-
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client.")
+-                self.status_bar.SetLabelText('Disconnected')
+-                break
+-
+-    def prompt(self):
+-        while True:
+-            try:
+-                received_data = self.client_socket.recv(2048).decode()
+-                received_data = dect(received_data)
+-                if not received_data:
+-                    continue
+-                else:
+-                    print(f'Received String: {received_data}')
+-                    self.chat_history.AppendText(f"\nServer : {received_data}")
+-
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client.")
+-                self.status_bar.SetLabelText('Disconnected')
+-                break
+-
+-    def client(self, user):
+-        try:
+-            self.client_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-            self.client_socket.connect((IP,self.port,0,0))
+-            self.status_bar.SetLabelText('Connected')
+-
+-            print("Enter the Reciever Username")
+-            username = input().rstrip()
+-            self.client_socket.send((username).encode())
+-            self.client_socket.send((user).encode())
+-
+-            t1 = threading.Thread(target=self.prompt)
+-            t1.start()
+-
+-        except ConnectionRefusedError:
+-            print("Tagret Refused to Connect")
+-            self.status_bar.SetLabelText("Connection Error")
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by client.")
+-            self.status_bar.SetLabelText('Disconnected')
+-
+-if __name__ == '__main__':
+-    app = wx.App(False)
+-    frame = TextMessagingGUI()
+-    frame.userdata()
+-    app.MainLoop()
+-
+Index: pythonProject/text cache system 1.py
+===================================================================
+diff --git a/pythonProject/text cache system 1.py b/pythonProject/text cache system 1.py
+deleted file mode 100644
+--- a/pythonProject/text cache system 1.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,23 +0,0 @@
+-import datetime
+-current_time = str(datetime.datetime.now())
+-import ast
+-import json
+-with open('/Users/anshumaansoni/PycharmProjects/pythonProject/text cache txt', 'r') as file:
+-    text = file.read()
+-    dictionary = ast.literal_eval(text)
+-
+-lister = []
+-a = list(dictionary.keys())
+-for i in dictionary[(a[0])].keys():
+-    if dictionary[(a[0])][i][1] == 0:
+-        lister.append(dictionary[(a[0])][i][0])
+-        dictionary[(a[0])][i][1] = 1
+-    else:
+-        continue
+-
+-print(lister)
+-
+-dictionary[a[0]][current_time]=['Hello',0]
+-
+-with open('/Users/anshumaansoni/PycharmProjects/pythonProject/text cache txt', 'w') as file:
+-    file.write(json.dumps(dictionary))
+\ No newline at end of file
+Index: pythonProject/Texting GUI copy.py
+===================================================================
+diff --git a/pythonProject/Texting GUI copy.py b/pythonProject/Texting GUI copy.py
+deleted file mode 100644
+--- a/pythonProject/Texting GUI copy.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,283 +0,0 @@
+-import wx
+-import threading
+-import socket
+-
+-print("Enter the Server Ip : ")
+-IP = input('')
+-print("Enter the port no. : ")
+-port = int(input(''))
+-
+-def enct(string):
+-    key = {'a': '@', 'b': '^', 'c': '&', 'd': '*', 'e': '/', 'f': '.', 'g': '{', 'h': '}', 'i': '+', 'j': '=', 'k': '#',
+-           'l': '!', 'm': '<', 'n': '_', 'o': '|', 'p': '~', 'q': '$', 'r': '%', 's': '`', 't': '(', 'u': ')', 'v': '-',
+-           'w': '2', 'x': '3', 'y': '6', 'z': '8', ' ': '0'}
+-    li = []
+-    for i in string:
+-       b = key[i]
+-       li.append(b)
+-    string = "".join(li)
+-    return string
+-
+-def dect(string):
+-    key = {'@': 'a', '^': 'b', '&': 'c', '*': 'd', '/': 'e', '.': 'f', '{': 'g', '}': 'h', '+': 'i', '=': 'j', '#': 'k', '!': 'l', '<': 'm', '_': 'n', '|': 'o', '~': 'p', '$': 'q', '%': 'r', '`': 's', '(': 't', ')': 'u', '-': 'v', '2': 'w', '3': 'x', '6': 'y', '8': 'z', '0': ' '}
+-    li = []
+-    for i in string:
+-      b = key[i]
+-      li.append(b)
+-    string = "".join(li)
+-    return string
+-
+-class LoginRegistrationFrame(wx.Frame):
+-    def __init__(self, parent, title):
+-        super().__init__(parent, title=title, size=(300, 150))
+-
+-        self.panel = wx.Panel(self)
+-
+-        self.sizer = wx.BoxSizer(wx.VERTICAL)
+-
+-        self.login_button = wx.Button(self.panel, label="Login")
+-        self.login_button.Bind(wx.EVT_BUTTON, self.on_login_click)
+-        self.sizer.Add(self.login_button, 0, wx.ALL | wx.CENTER, 5)
+-
+-        self.register_button = wx.Button(self.panel, label="Register")
+-        self.register_button.Bind(wx.EVT_BUTTON, self.on_register_click)
+-        self.sizer.Add(self.register_button, 0, wx.ALL | wx.CENTER, 5)
+-
+-        self.panel.SetSizer(self.sizer)
+-        self.Show(True)
+-
+-    def on_login_click(self, event):
+-        print("Login button clicked!")
+-        self.login_button.Destroy()
+-        self.register_button.Destroy()
+-        self.user_text = wx.StaticText(self.panel, label="Username - ", pos=(50, 25))
+-        self.sizer.Add(self.user_text, 0, wx.ALIGN_CENTER, 5)
+-        self.message = wx.TextCtrl(self.panel, pos=(115, 25))
+-        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+-        hsizer.Add(self.message, 1, wx.EXPAND, 5)
+-
+-        self.pass_text = wx.StaticText(self.panel, label="Password - ", pos=(50, 55))
+-        self.sizer.Add(self.pass_text, 0, wx.ALIGN_CENTER, 5)
+-        self.message2 = wx.TextCtrl(self.panel, pos=(115, 55))
+-        hsizer.Add(self.message2, 1, wx.EXPAND | wx.ALL, 5)
+-        self.sizer.Add(hsizer, 1, wx.EXPAND | wx.ALL, 5)
+-
+-        username = self.message.GetValue()
+-        passw = self.message2.GetValue()
+-        req = username + '#' + passw
+-        self.clientDNS_socket.sendall(req.encode())
+-        reqr = self.clientDNS_socket.recv(2048).decode()
+-
+-        if reqr:
+-            if (reqr == '1'):
+-                reqr1 = 'sendport'
+-                self.clientDNS_socket.send(reqr1.encode())
+-                portno = self.clientDNS_socket.recv(2048).decode()
+-                self.port = int(portno)
+-                self.panel.Destroy()
+-                frame1 = TextMessagingGUI()
+-                frame1.client()
+-                app.MainLoop()
+-
+-            elif (reqr == 'Credfail'):
+-                print("Username, Password dont match ( Credfail Error) ")
+-            else:
+-                print("No Account Found !!")
+-        else:
+-            print("Server did not respond")
+-
+-    def on_register_click(self, event):
+-      print("Register button clicked!")
+-
+-    def client(self):
+-        try:
+-            self.clientDNS_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-            self.clientDNS_socket.connect((IP,port,0,0))
+-
+-        except ConnectionRefusedError:
+-            print("Tagret Refused to Connect")
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by client.")
+-
+-    def start(self):
+-        loginthread = threading.Thread(target=self.client)
+-        loginthread.start()
+-
+-'''
+-class USERLOGGER(wx.Frame):
+-    global port
+-    def __init__(self, parent = None):
+-        super().__init__(parent, title = "Login Or Register")
+-
+-        self.login_panel = wx.Panel(self)
+-        self.sizer = wx.BoxSizer(wx.VERTICAL)
+-        self.login_button = wx.Button(self.login_panel, label='login')
+-        self.login_button.Bind(wx.EVT_BUTTON, self.on_login_click)
+-        self.sizer.Add(self.login_button, 0, wx.ALL | wx.CENTRE, 5)
+-        self.reg_button = wx.Button(self.login_panel, label='register')
+-        self.reg_button.Bind(wx.EVT_BUTTON, self.on_reg_click)
+-        self.sizer.Add(self.reg_button, 0, wx.ALL | wx.CENTRE, 5)
+-        self.login_panel.SetSizer(self.sizer)
+-        self.Show(True)
+-
+-        try:
+-            self.clientDNS_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-            self.clientDNS_socket.connect((IP, port, 0, 0))
+-
+-        except ConnectionRefusedError:
+-            print("Tagret Refused to Connect")
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by Server.")
+-
+-    def on_login_click(self):
+-        self.login_button.Destroy()
+-        self.reg_button.Destroy()
+-        self.clientDNS_socket.send(('login').encode())
+-
+-        self.user_text = wx.StaticText(self.login_panel, label="Username - ", pos=(50, 25))
+-        self.sizer.Add(self.user_text, 0, wx.ALIGN_CENTER, 5)
+-        self.message = wx.TextCtrl(self.login_panel, pos=(115, 25))
+-        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+-        hsizer.Add(self.message, 1, wx.EXPAND, 5)
+-
+-        self.pass_text = wx.StaticText(self.login_panel, label="Password - ", pos=(50, 55))
+-        self.sizer.Add(self.pass_text, 0, wx.ALIGN_CENTER, 5)
+-        self.message2 = wx.TextCtrl(self.login_panel, pos=(115, 55))
+-        hsizer.Add(self.message2, 1, wx.EXPAND | wx.ALL, 5)
+-        self.sizer.Add(hsizer, 1, wx.EXPAND | wx.ALL, 5)
+-
+-        username = self.message.GetValue()
+-        passw = self.message2.GetValue()
+-        req = username + '#' + passw
+-        self.clientDNS_socket.sendall(req.encode())
+-        reqr = self.clientDNS_socket.recv(2048).decode()
+-
+-        if reqr:
+-            if (reqr == '1'):
+-                reqr1 = 'sendport'
+-                self.clientDNS_socket.send(reqr1.encode())
+-                portno = self.clientDNS_socket.recv(2048).decode()
+-                self.port = int(portno)
+-                self.login_panel.Destroy()
+-                frame = TextMessagingGUI()
+-                frame.client()
+-                app.MainLoop()
+-
+-            elif (reqr == 'Credfail'):
+-
+-                print("Username, Password dont match ( Credfail Error) ")
+-            else:
+-                print("No Account Found !!")
+-        else:
+-            print("Server did not respond")
+-
+-    def on_reg_click(self):
+-        self.clientDNS_socket.send(('reg').encode())
+-        print("Set an Username")
+-        username = input().rstrip()
+-        print("Set the password")
+-        passw = input().rstrip()
+-        req = username + '#' + passw
+-        self.clientDNS_socket.send(req.encode())
+-        reqr = self.clientDNS_socket.recv(2048).decode()
+-        if (reqr == 'AAE'):
+-            print("Username exists already. try logging in or select a different Username")
+-
+-        elif (reqr == 'success'):
+-            print("New Account succesfully registered, Please Login Now")
+-
+-        else:
+-            print("Error Occured")
+-'''
+-class TextMessagingGUI(wx.Frame):
+-
+-    def __init__(self, parent=None):
+-        super().__init__(parent, title="Text Messaging Client")
+-
+-        central_panel = wx.Panel(self)
+-        sizer = wx.BoxSizer(wx.VERTICAL)
+-        central_panel.SetSizer(sizer)
+-
+-        self.chat_history = wx.TextCtrl(central_panel, style=wx.TE_MULTILINE | wx.TE_READONLY)
+-        sizer.Add(self.chat_history, 1, wx.EXPAND | wx.ALL, 5)
+-
+-        self.message_entry = wx.TextCtrl(central_panel)
+-        self.send_button = wx.Button(central_panel, label="Send")
+-        self.send_button.Bind(wx.EVT_BUTTON, self.send)
+-
+-        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+-        hsizer.Add(self.message_entry, 1, wx.EXPAND, 5)
+-        hsizer.Add(self.send_button, 0, wx.HORIZONTAL, 5)
+-        sizer.Add(hsizer, 0, wx.EXPAND | wx.ALL, 5)
+-
+-        self.status_bar = wx.StaticText(central_panel, label="Disconnected")
+-        sizer.Add(self.status_bar, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
+-        self.Show(True)
+-
+-    def send(self, event):
+-        while True:
+-            try:
+-                if self.message_entry.GetValue():
+-                    txt = self.message_entry.GetValue()
+-                    txt = enct(txt)
+-                    self.client_socket.sendall((txt).encode())
+-                    self.chat_history.AppendText(f"\nMe: {self.message_entry.GetValue()}")
+-                    self.message_entry.Clear()
+-                else:
+-                    break
+-
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client.")
+-                self.status_bar.SetLabelText('Disconnected')
+-                break
+-
+-    def prompt(self):
+-        while True:
+-            try:
+-                received_data = self.client_socket.recv(2048).decode()
+-                received_data = dect(received_data)
+-                if not received_data:
+-                    continue
+-                else:
+-                    print(f'Received String: {received_data}')
+-                    self.chat_history.AppendText(f"\nServer : {received_data}")
+-
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client.")
+-                self.status_bar.SetLabelText('Disconnected')
+-                break
+-
+-    def processing(self):
+-        t3 = threading.Thread(target=self.prompt)
+-        t2 = threading.Thread(target=self.send)
+-
+-        t3.start()
+-        t2.start()
+-
+-        t3.join()
+-        t2.join()
+-
+-    def client(self):
+-        try:
+-            self.client_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-            self.client_socket.connect((IP,port,0,0))
+-            self.status_bar.SetLabelText('Connected')
+-
+-            t1 = threading.Thread(target=self.prompt)
+-            t1.start()
+-
+-        except ConnectionRefusedError:
+-            print("Tagret Refused to Connect")
+-            self.status_bar.SetLabelText("Connection Error")
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by client.")
+-            self.status_bar.SetLabelText('Disconnected')
+-
+-if __name__ == '__main__':
+-    app = wx.App(False)
+-    frame = LoginRegistrationFrame(None, "Login or Register")
+-    frame.start()
+-    app.MainLoop()
+Index: pythonProject/Texting GUI main.py
+===================================================================
+diff --git a/pythonProject/Texting GUI main.py b/pythonProject/Texting GUI main.py
+deleted file mode 100644
+--- a/pythonProject/Texting GUI main.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,162 +0,0 @@
+-import wx
+-import threading
+-import socket
+-
+-print("Enter the Server Ip : ")
+-IP = input('')
+-print("Enter the port no. : ")
+-port = int(input(''))
+-
+-def enct(string):
+-    key = {'a': '@', 'b': '^', 'c': '&', 'd': '*', 'e': '/', 'f': '.', 'g': '{', 'h': '}', 'i': '+', 'j': '=', 'k': '#', 'l': '!', 'm': '<', 'n': '_', 'o': '|', 'p': '~', 'q': '$', 'r': '%', 's': '`', 't': '(', 'u': ')', 'v': '-', 'w': '2', 'x': '3', 'y': '6', 'z': '8', ' ': '0'}
+-    li = []
+-    for i in string:
+-      b = key[i]
+-      li.append(b)
+-    string = "".join(li)
+-    return string
+-
+-def dect(string):
+-    key = {'@': 'a', '^': 'b', '&': 'c', '*': 'd', '/': 'e', '.': 'f', '{': 'g', '}': 'h', '+': 'i', '=': 'j', '#': 'k', '!': 'l', '<': 'm', '_': 'n', '|': 'o', '~': 'p', '$': 'q', '%': 'r', '`': 's', '(': 't', ')': 'u', '-': 'v', '2': 'w', '3': 'x', '6': 'y', '8': 'z', '0': ' '}
+-    li = []
+-    for i in string:
+-      b = key[i]
+-      li.append(b)
+-    string = "".join(li)
+-    return string
+-class TextMessagingGUI(wx.Frame):
+-
+-    def __init__(self, parent=None):
+-        super().__init__(parent, title="Text Messaging Client")
+-
+-        central_panel = wx.Panel(self)
+-        sizer = wx.BoxSizer(wx.VERTICAL)
+-        central_panel.SetSizer(sizer)
+-
+-        self.chat_history = wx.TextCtrl(central_panel, style=wx.TE_MULTILINE | wx.TE_READONLY)
+-        sizer.Add(self.chat_history, 1, wx.EXPAND | wx.ALL, 5)
+-
+-        self.message_entry = wx.TextCtrl(central_panel)
+-        self.send_button = wx.Button(central_panel, label="Send")
+-        self.send_button.Bind(wx.EVT_BUTTON, self.send)
+-
+-        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+-        hsizer.Add(self.message_entry, 1, wx.EXPAND, 5)
+-        hsizer.Add(self.send_button, 0, wx.HORIZONTAL, 5)
+-        sizer.Add(hsizer, 0, wx.EXPAND | wx.ALL, 5)
+-
+-        self.status_bar = wx.StaticText(central_panel, label="Disconnected")
+-        sizer.Add(self.status_bar, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
+-        self.Show(True)
+-
+-    def userdata(self):
+-        try:
+-            self.clientDNS_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-            self.clientDNS_socket.connect((IP, port, 0, 0))
+-
+-        except ConnectionRefusedError:
+-            print("Tagret Refused to Connect")
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by Server.")
+-
+-        print("Login or Register as New user  (1/2)")
+-        stat = int(input())
+-        if (stat == 1):
+-            self.clientDNS_socket.send(('login').encode())
+-            print("Enter your Username")
+-            username = input().rstrip()
+-            print("Enter your Password")
+-            passw = input().rstrip()
+-            req = username + '#' + passw
+-            self.clientDNS_socket.sendall(req.encode())
+-            reqr = self.clientDNS_socket.recv(2048).decode()
+-            if reqr:
+-                if (reqr == '1'):
+-                    reqr1 = 'sendport'
+-                    self.clientDNS_socket.send(reqr1.encode())
+-                    portno = self.clientDNS_socket.recv(2048).decode()
+-                    print('1')
+-                    self.port = int(portno)
+-                    self.client()
+-                elif (reqr == 'Credfail'):
+-                    print("Username, Password dont match ( Credfail Error) ")
+-                else:
+-                    print("No Account Found !!")
+-            else:
+-                print("Server did not respond")
+-
+-        else:
+-            self.clientDNS_socket.send(('reg').encode())
+-            print("Set an Username")
+-            username = input().rstrip()
+-            print("Set the password")
+-            passw = input().rstrip()
+-            req = username+'#'+passw
+-            self.clientDNS_socket.send(req.encode())
+-            reqr = self.clientDNS_socket.recv(2048).decode()
+-            if(reqr=='AAE'):
+-                print("Username exists already. try logging in or select a different Username")
+-
+-            elif(reqr=='success'):
+-                print("New Account succesfully registered, Please Login Now")
+-
+-            else:
+-                print("Error Occured")
+-
+-    def send(self, event):
+-        while True:
+-            try:
+-                if self.message_entry.GetValue():
+-                    txt = self.message_entry.GetValue()
+-                    txt = enct(txt)
+-                    self.client_socket.sendall((txt).encode())
+-                    self.chat_history.AppendText(f"\nMe: {self.message_entry.GetValue()}")
+-                    self.message_entry.Clear()
+-                else:
+-                    break
+-
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client.")
+-                self.status_bar.SetLabelText('Disconnected')
+-                break
+-
+-    def prompt(self):
+-        while True:
+-            try:
+-                received_data = self.client_socket.recv(2048).decode()
+-                received_data = dect(received_data)
+-                if not received_data:
+-                    continue
+-                else:
+-                    print(f'Received String: {received_data}')
+-                    self.chat_history.AppendText(f"\nServer : {received_data}")
+-
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client.")
+-                self.status_bar.SetLabelText('Disconnected')
+-                break
+-
+-    def client(self):
+-        try:
+-            self.client_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-            self.client_socket.connect((IP,self.port,0,0))
+-            self.status_bar.SetLabelText('Connected')
+-
+-            t1 = threading.Thread(target=self.prompt)
+-            t1.start()
+-
+-        except ConnectionRefusedError:
+-            print("Tagret Refused to Connect")
+-            self.status_bar.SetLabelText("Connection Error")
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by client.")
+-            self.status_bar.SetLabelText('Disconnected')
+-
+-if __name__ == '__main__':
+-    app = wx.App(False)
+-    frame = TextMessagingGUI()
+-    frame.userdata()
+-    app.MainLoop()
+-
+Index: pythonProject/trials.py
+===================================================================
+diff --git a/pythonProject/trials.py b/pythonProject/trials.py
+deleted file mode 100644
+--- a/pythonProject/trials.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,211 +0,0 @@
+-import wx
+-import socket
+-import threading
+-def enct(string):
+-    key = {'a': '@', 'b': '^', 'c': '&', 'd': '*', 'e': '/', 'f': '.', 'g': '{', 'h': '}', 'i': '+', 'j': '=', 'k': '#',
+-           'l': '!', 'm': '<', 'n': '_', 'o': '|', 'p': '~', 'q': '$', 'r': '%', 's': '`', 't': '(', 'u': ')', 'v': '-',
+-           'w': '2', 'x': '3', 'y': '6', 'z': '8', ' ': '0'}
+-    li = []
+-    for i in string:
+-       b = key[i]
+-       li.append(b)
+-    string = "".join(li)
+-    return string
+-
+-def dect(string):
+-    key = {'@': 'a', '^': 'b', '&': 'c', '*': 'd', '/': 'e', '.': 'f', '{': 'g', '}': 'h', '+': 'i', '=': 'j', '#': 'k', '!': 'l', '<': 'm', '_': 'n', '|': 'o', '~': 'p', '$': 'q', '%': 'r', '`': 's', '(': 't', ')': 'u', '-': 'v', '2': 'w', '3': 'x', '6': 'y', '8': 'z', '0': ' '}
+-    li = []
+-    for i in string:
+-      b = key[i]
+-      li.append(b)
+-    string = "".join(li)
+-    return string
+-
+-class LoginRegistrationFrame(wx.Frame):
+-
+-    def __init__(self, parent, title):
+-        super().__init__(parent, title=title, size=(400, 500))
+-
+-        self.panel = wx.Panel(self)
+-
+-        self.sizer = wx.BoxSizer(wx.VERTICAL)
+-
+-        self.login_button = wx.Button(self.panel, label="Login")
+-        self.login_button.Bind(wx.EVT_BUTTON, self.on_login_click)
+-        self.sizer.Add(self.login_button, 0, wx.ALL | wx.CENTER, 5)
+-
+-        self.register_button = wx.Button(self.panel, label="Register")
+-        self.register_button.Bind(wx.EVT_BUTTON, self.on_register_click)
+-        self.sizer.Add(self.register_button, 0, wx.ALL | wx.CENTER, 5)
+-
+-        self.message = wx.TextCtrl(self.panel, pos=(100, 10))
+-        self.message2 = wx.TextCtrl(self.panel, pos=(100, 40))
+-        self.user_text = wx.StaticText(self.panel, label="Username - ", pos=(25, 10))
+-        self.sizer.Add(self.user_text, 0, wx.ALL, 5)
+-        self.sizer.Add(self.message, 0, wx.ALL, 5)
+-
+-        self.pass_text = wx.StaticText(self.panel, label="Password - ", pos=(25, 40))
+-        self.sizer.Add(self.pass_text, 0, wx.ALL, 5)
+-        self.sizer.Add(self.message2, 0, wx.ALL, 5)
+-
+-        self.login2_button = wx.Button(self.panel, label='Login', pos=(100,60))
+-        self.login2_button.Bind(wx.EVT_BUTTON, self.logth)
+-        self.sizer.Add(self.login2_button, 0, wx.ALL, 5)
+-
+-        self.panel.SetSizer(self.sizer)
+-        self.Show(True)
+-
+-        self.message.Hide()
+-        self.message2.Hide()
+-        self.user_text.Hide()
+-        self.pass_text.Hide()
+-        self.login2_button.Hide()
+-
+-    def logth(self, event):
+-        logthh = threading.Thread(target=self.login)
+-        logthh.start()
+-
+-    def login(self):
+-            username = self.message.GetValue()
+-            passw = self.message2.GetValue()
+-            if username:
+-                req = username + '#' + passw
+-                self.clientDNS_socket.sendall(req.encode())
+-                reqr = self.clientDNS_socket.recv(2048).decode()
+-
+-                if reqr:
+-                    if (reqr == '1'):
+-                        reqr1 = 'sendport'
+-                        self.clientDNS_socket.send(reqr1.encode())
+-                        portno = self.clientDNS_socket.recv(2048).decode()
+-                        self.port = int(portno)
+-                        print(portno)
+-                        self.Close()
+-                        App = wx.App(False)
+-                        frame1 = TextMessagingGUI()
+-                        frame1.client(self.port)
+-                        App.MainLoop()
+-
+-                    elif (reqr == 'Credfail'):
+-                        print("Username, Password dont match ( Credfail Error) ")
+-                    else:
+-                        print("No Account Found !!")
+-                else:
+-                    print("Server did not respond")
+-
+-    def on_login_click(self, event):
+-        print("Login button clicked!")
+-        self.message.Show()
+-        self.message2.Show()
+-        self.user_text.Show()
+-        self.pass_text.Show()
+-        self.login2_button.Show()
+-        self.login_button.Destroy()
+-        self.register_button.Destroy()
+-        self.clientDNS_socket.send(('login').encode())
+-    def on_register_click(self, event):
+-        print("Register button clicked!")
+-
+-    def client(self):
+-        try:
+-            self.clientDNS_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-            self.clientDNS_socket.connect(('fe80::8e2f:154e:ad00:b28d%21', 12345, 0, 0))
+-
+-        except ConnectionRefusedError:
+-            print("Tagret Refused to Connect")
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by client.")
+-
+-
+-class TextMessagingGUI(wx.Frame):
+-
+-    def __init__(self, parent=None):
+-        super().__init__(parent, title="Text Messaging Client")
+-
+-        central_panel = wx.Panel(self)
+-        sizer = wx.BoxSizer(wx.VERTICAL)
+-        central_panel.SetSizer(sizer)
+-
+-        self.chat_history = wx.TextCtrl(central_panel, style=wx.TE_MULTILINE | wx.TE_READONLY)
+-        sizer.Add(self.chat_history, 1, wx.EXPAND | wx.ALL, 5)
+-
+-        self.message_entry = wx.TextCtrl(central_panel)
+-        self.send_button = wx.Button(central_panel, label="Send")
+-        self.send_button.Bind(wx.EVT_BUTTON, self.send)
+-
+-        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+-        hsizer.Add(self.message_entry, 1, wx.EXPAND, 5)
+-        hsizer.Add(self.send_button, 0, wx.HORIZONTAL, 5)
+-        sizer.Add(hsizer, 0, wx.EXPAND | wx.ALL, 5)
+-
+-        self.status_bar = wx.StaticText(central_panel, label="Disconnected")
+-        sizer.Add(self.status_bar, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
+-        self.Show(True)
+-
+-    def send(self, event):
+-        while True:
+-            try:
+-                if self.message_entry.GetValue():
+-                    txt = wx.CallAfter(self.message_entry.GetValue())
+-                    txt = enct(txt)
+-                    self.client_socket.sendall((txt).encode())
+-                    wx.CallAfter(self.chat_history.AppendText(f"\nMe: {self.message_entry.GetValue()}"))
+-                    wx.CallAfter(self.message_entry.Clear())
+-                else:
+-                    break
+-
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client.")
+-                self.status_bar.SetLabelText('Disconnected')
+-                break
+-
+-    def prompt(self):
+-        while True:
+-            try:
+-                received_data = self.client_socket.recv(2048).decode()
+-                received_data = dect(received_data)
+-                if not received_data:
+-                    continue
+-                else:
+-                    print(f'Received String: {received_data}')
+-                    self.chat_history.AppendText(f"\nServer : {received_data}")
+-
+-            except (ConnectionError, ConnectionAbortedError):
+-                print("Connection closed by client.")
+-                self.status_bar.SetLabelText('Disconnected')
+-                break
+-
+-    def processing(self):
+-        t3 = threading.Thread(target=self.prompt) 
+-        t2 = threading.Thread(target=self.send)
+-
+-        t3.start()
+-        t2.start()
+-
+-        t3.join()
+-        t2.join()
+-
+-    def client(self, port):
+-        try:
+-            self.client_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM, 0)
+-            self.client_socket.connect(('fe80::8e2f:154e:ad00:b28d%21',port,0,0))
+-            self.status_bar.SetLabelText('Connected')
+-
+-            t1 = threading.Thread(target=self.prompt)
+-            t1.start()
+-
+-        except ConnectionRefusedError:
+-            print("Tagret Refused to Connect")
+-            self.status_bar.SetLabelText("Connection Error")
+-
+-        except (ConnectionError, ConnectionAbortedError):
+-            print("Connection closed by client.")
+-            self.status_bar.SetLabelText('Disconnected')
+-
+-if __name__ == '__main__':
+-    app = wx.App(False)
+-    frame = LoginRegistrationFrame(None, "Login or Register")
+-    clienth = threading.Thread(target=frame.client)
+-    clienth.start()
+-    app.MainLoop()
+Index: pythonProject/trials4.py
+===================================================================
+diff --git a/pythonProject/trials4.py b/pythonProject/trials4.py
+deleted file mode 100644
+--- a/pythonProject/trials4.py	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
++++ /dev/null	(revision bebc2f4b49116bd5c5f92b0e1f482528abcbc868)
+@@ -1,73 +0,0 @@
+-import wx
+-
+-class LoginRegistrationFrame(wx.Frame):
+-    def __init__(self, parent, title):
+-        super().__init__(parent, title=title, size=(300, 150))
+-
+-        self.panel = wx.Panel(self)
+-
+-        self.sizer = wx.BoxSizer(wx.VERTICAL)
+-
+-        self.login_button = wx.Button(self.panel, label="Login")
+-        self.login_button.Bind(wx.EVT_BUTTON, self.on_login_click)  # Bind click event
+-        self.sizer.Add(self.login_button, 0, wx.ALL | wx.CENTER, 5)  # Add button with padding
+-
+-        self.register_button = wx.Button(self.panel, label="Register")
+-        self.register_button.Bind(wx.EVT_BUTTON, self.on_register_click)  # Bind click event
+-        self.sizer.Add(self.register_button, 0, wx.ALL | wx.CENTER, 5)  # Add button with padding
+-
+-        self.panel.SetSizer(self.sizer)
+-
+-    def on_login_click(self, event):
+-        print("Login button clicked!")
+-        self.login_button.Destroy()
+-        self.register_button.Destroy()
+-        self.user_text = wx.StaticText(self.panel, label="Username - ", pos=(50, 25))
+-        self.sizer.Add(self.user_text, 0, wx.ALIGN_CENTER, 5)
+-        self.message = wx.TextCtrl(self.panel, pos=(115, 25))
+-        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+-        hsizer.Add(self.message, 1, wx.EXPAND, 5)
+-
+-        self.pass_text = wx.StaticText(self.panel, label="Password - ", pos=(50, 55))
+-        self.sizer.Add(self.pass_text, 0, wx.ALIGN_CENTER, 5)
+-        self.message2 = wx.TextCtrl(self.panel, pos=(115, 55))
+-        hsizer.Add(self.message2, 1, wx.EXPAND | wx.ALL, 5)
+-        self.sizer.Add(hsizer, 1, wx.EXPAND | wx.ALL, 5)
+-
+-        username = self.message.GetValue()
+-        passw = self.message2.GetValue()
+-        req = username + '#' + passw
+-        self.clientDNS_socket.sendall(req.encode())
+-        reqr = self.clientDNS_socket.recv(2048).decode()
+-
+-        if reqr:
+-            if (reqr == '1'):
+-                reqr1 = 'sendport'
+-                self.clientDNS_socket.send(reqr1.encode())
+-                portno = self.clientDNS_socket.recv(2048).decode()
+-                self.port = int(portno)
+-                self.login_panel.Destroy()
+-                frame = TextMessagingGUI()
+-                frame.client()
+-                app.MainLoop()
+-
+-            elif (reqr == 'Credfail'):
+-                print("Username, Password dont match ( Credfail Error) ")
+-            else:
+-                print("No Account Found !!")
+-        else:
+-            print("Server did not respond")
+-
+-    def on_register_click(self, event):
+-      # Handle registration button click (placeholder for your registration logic)
+-      print("Register button clicked!")
+-
+-
+-
+-
+-
+-if __name__ == "__main__":
+-    app = wx.App()
+-    frame = LoginRegistrationFrame(None, "Login or Register")
+-    frame.Show()
+-    app.MainLoop()
+diff --git a/pythonProject/text cache txt b/pythonProject/text cache txt
+deleted file mode 100644
+index 58ccec649ea3b9639e716c8ed0558e4d24f79b75..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+Hc$@<O00001
+
